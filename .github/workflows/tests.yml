@@ -37,7 +37,7 @@ jobs:
       - name: Show bun version
         run: bun --version
       - name: Show capgo version
-        run: bunx @capgo/cli@latest -v
+        run: npx @capgo/cli@latest -v
       - name: Check for console statements
         run: |
           if grep -r --exclude="logging.ts" --exclude=".env" --exclude=".env.*" "console\." supabase/functions/; then
