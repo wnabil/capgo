@@ -12,7 +12,7 @@
   "files.associations": {
     "*.css": "css"
   },
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "typescript.preferences.autoImportFileExcludePatterns": [
     "vue-router"
   ],
