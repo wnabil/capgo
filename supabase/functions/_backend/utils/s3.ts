@@ -4,10 +4,10 @@ import { S3Client } from '@bradenmacdonald/s3-lite-client'
 import { cloudlog } from './logging.ts'
 import { getEnv } from './utils.ts'
 
-function initS3(c: Context) {
+function initS3(c: Context, endpointKey: string = 'S3_ENDPOINT') {
   const access_key_id = getEnv(c, 'S3_ACCESS_KEY_ID')
   const access_key_secret = getEnv(c, 'S3_SECRET_ACCESS_KEY')
-  const storageEndpoint = getEnv(c, 'S3_ENDPOINT')
+  const storageEndpoint = getEnv(c, endpointKey)
   const storageRegion = getEnv(c, 'S3_REGION') || 'us-east-1'
   const useSSL = getEnv(c, 'S3_SSL') === 'true'
   const bucket = getEnv(c, 'S3_BUCKET')
@@ -23,6 +23,18 @@ function initS3(c: Context) {
     bucket,
   })
   return client
+}
+
+function initS3Internal(c: Context) {
+  return initS3(c, 'S3_ENDPOINT')
+}
+
+function initS3Public(c: Context) {
+  const publicEndpoint = getEnv(c, 'S3_PUBLIC_ENDPOINT')
+  if (!publicEndpoint) {
+    return initS3Internal(c)
+  }
+  return initS3(c, 'S3_PUBLIC_ENDPOINT')
 }
 
 export async function getPath(
@@ -53,7 +65,7 @@ export async function getPath(
 }
 
 async function getUploadUrl(c: Context, fileId: string, expirySeconds = 1200) {
-  const client = initS3(c)
+  const client = initS3Public(c)
   const url = await client.getPresignedUrl('PUT', fileId, {
     expirySeconds,
     parameters: {
@@ -65,7 +77,7 @@ async function getUploadUrl(c: Context, fileId: string, expirySeconds = 1200) {
 }
 
 async function deleteObject(c: Context, fileId: string) {
-  const client = initS3(c)
+  const client = initS3Internal(c)
   const url = await client.getPresignedUrl('DELETE', fileId)
   const response = await fetch(url, {
     method: 'DELETE',
@@ -78,7 +90,7 @@ async function checkIfExist(c: Context, fileId: string | null) {
     return false
   }
   try {
-    const client = initS3(c)
+    const client = initS3Internal(c)
     const url = await client.getPresignedUrl('HEAD', fileId)
     const response = await fetch(url, {
       method: 'HEAD',
@@ -93,7 +105,7 @@ async function checkIfExist(c: Context, fileId: string | null) {
 }
 
 async function getSignedUrl(c: Context, fileId: string, expirySeconds: number) {
-  const client = initS3(c)
+  const client = initS3Public(c)
   const url = await client.getPresignedUrl('GET', fileId, {
     expirySeconds,
     parameters: {
@@ -105,7 +117,7 @@ async function getSignedUrl(c: Context, fileId: string, expirySeconds: number) {
 }
 
 async function getSize(c: Context, fileId: string) {
-  const client = initS3(c)
+  const client = initS3Internal(c)
   try {
     // Ask Cloudflare/R2 for the raw object (no brotli/gzip) so Content-Length is preserved.
     const file = await client.statObject(fileId, {
@@ -178,7 +190,7 @@ async function getSize(c: Context, fileId: string) {
 }
 
 async function getObject(c: Context, fileId: string): Promise<Response | null> {
-  const client = initS3(c)
+  const client = initS3Internal(c)
   try {
     const url = await client.getPresignedUrl('GET', fileId, {
       expirySeconds: 60,
